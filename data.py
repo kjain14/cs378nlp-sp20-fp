@@ -11,7 +11,7 @@ import torch
 from torch.utils.data import Dataset
 from random import shuffle
 from utils import cuda, load_dataset
-
+import spacy
 
 PAD_TOKEN = '[PAD]'
 UNK_TOKEN = '[UNK]'
@@ -140,12 +140,20 @@ class QADataset(Dataset):
     def __init__(self, args, path):
         self.args = args
         self.meta, self.elems = load_dataset(path)
+        self.ner = spacy.load("en_core_web_sm")
+        self.heuristics = ["who", "name"]
         self.samples = self._create_samples()
         self.tokenizer = None
         self.batch_size = args.batch_size if 'batch_size' in args else 1
         self.pad_token_id = self.tokenizer.pad_token_id \
             if self.tokenizer is not None else 0
 
+    def find_sub_list(sl,l):
+        sll=len(sl)
+        for ind in (i for i,e in enumerate(l) if e==sl[0]):
+            if l[ind:ind+sll]==sl:
+                return ind,ind+sll-1
+        
     def _create_samples(self):
         """
         Formats raw examples to desired form. Any passages/questions longer
@@ -164,18 +172,56 @@ class QADataset(Dataset):
             # Each passage has several questions associated with it.
             # Additionally, each question has multiple possible answer spans.
             for qa in elem['qas']:
+                temp_passage = passage
                 qid = qa['qid']
                 question = [
                     token.lower() for (token, offset) in qa['question_tokens']
                 ][:self.args.max_question_length]
-
+                counter = 0
+                
+                answers = qa['detected_answers']
+                #print(qa)
+                answer_start, answer_end = answers[0]['token_spans'][0]
+                
+                for word in self.heuristics:
+                    if word in question:
+                        #print(question)
+                        ner_sents= []
+                        curr_sentence = []
+                        answer_in_sentence = False
+                        for idx in range(len(passage)):
+                            if idx >= answer_start and idx <= answer_end:
+                                answer_in_sentence = True
+                            p_word = passage[idx]
+                            curr_sentence.append(p_word)
+                            if p_word in [".", "?", "!"]:
+                                if len(self.ner(" ".join(str(w) for w in curr_sentence)).ents) > 0 or answer_in_sentence:
+                                    ner_sents.append([s_word for s_word in curr_sentence])
+                                elif idx < answer_start:
+                                    counter += len(curr_sentence)
+                                curr_sentence = []
+                                answer_in_sentence =False
+                        temp_passage = [w for sublist in ner_sents for w in sublist]
+                        #print("Passage is: ")
+                        #print(passage)
+                        #print()
+                        #print("Passage with NER is: ")
+                        #print(temp_passage)
+                        #print()
+                        break
+                                
+                #print(temp_passage)
                 # Select the first answer span, which is formatted as
                 # (start_position, end_position), where the end_position
                 # is inclusive.
-                answers = qa['detected_answers']
-                answer_start, answer_end = answers[0]['token_spans'][0]
+                answer_start -= counter
+                answer_end -= counter
+                #if counter > 0:
+                    #print(temp_passage)
+                    #print((qid, temp_passage[answer_start:answer_end+1], question, answer_start, answer_end))
+                    #print(passage[answer_start+counter:answer_end+counter+1])
                 samples.append(
-                    (qid, passage, question, answer_start, answer_end)
+                    (qid, temp_passage, question, answer_start, answer_end)
                 )
                 
         return samples
