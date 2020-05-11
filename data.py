@@ -141,7 +141,7 @@ class QADataset(Dataset):
         self.args = args
         self.meta, self.elems = load_dataset(path)
         self.ner = spacy.load("en_core_web_sm")
-        self.heuristics = ["name"]
+        self.heuristics = ["name", "which", "who", "whom"]
         if isDev:
             self.samples = self._create_samples_dev()
         else:
@@ -151,11 +151,6 @@ class QADataset(Dataset):
         self.pad_token_id = self.tokenizer.pad_token_id \
             if self.tokenizer is not None else 0
 
-    def find_sub_list(sl,l):
-        sll=len(sl)
-        for ind in (i for i,e in enumerate(l) if e==sl[0]):
-            if l[ind:ind+sll]==sl:
-                return ind,ind+sll-1
         
     def _create_samples_dev(self):
         """
