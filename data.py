@@ -160,7 +160,11 @@ class QADataset(Dataset):
         Returns:
             A list of words (string).
         """
+        w_removed_total = 0
+        sent_NER_total = 0
+        q_count = 0 
         samples = []
+        passage_full = 0 
         for elem in self.elems:
             # Unpack the context paragraph. Shorten to max sequence length.
             passage = [
@@ -183,6 +187,7 @@ class QADataset(Dataset):
                 
                 for word in self.heuristics:
                     if word in question:
+                        q_count += 1
                         #print(question)
                         ner_sents= []
                         curr_sentence = []
@@ -195,12 +200,13 @@ class QADataset(Dataset):
                             if p_word in [".", "?", "!"]:
                                 if len(self.ner(" ".join(str(w) for w in curr_sentence)).ents) > 0 or answer_in_sentence:
                                     ner_sents.append([s_word for s_word in curr_sentence])
+                                    w_removed_total += len(curr_sentence)
+                                    sent_NER_total += 1
                                 elif idx < answer_start:
                                     counter += len(curr_sentence)
                                 curr_sentence = []
                                 answer_in_sentence =False
                         temp_passage = [w for sublist in ner_sents for w in sublist]
-
                         break
 
                 if len(temp_passage) > 0:         
@@ -208,11 +214,14 @@ class QADataset(Dataset):
                     answer_end -= counter
                 else:
                     temp_passage = passage
-
+                passage_full += len(passage)
                 samples.append(
                     (qid, temp_passage, question, answer_start, answer_end)
                 )
-                
+        print("Total Questions with Heuristics: " + str(q_count))
+        print("Total Sentences with NER: " + str(sent_NER_total))
+        print("Total Words Included: " + str(w_removed_total))
+        print("Total Words in Complete Passage: " + str(passage_full))
         return samples
 
     def _create_samples(self):
