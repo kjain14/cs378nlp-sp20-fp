@@ -141,7 +141,11 @@ class QADataset(Dataset):
         self.args = args
         self.meta, self.elems = load_dataset(path)
         self.ner = spacy.load("en_core_web_sm")
-        self.heuristics = ["name", "which", "who", "whom"]
+        self.heuristics = {"when":"DATE", 
+                        "who":"PERSON",
+                        "how many":"NUMBER",
+                        "year":"DATE",
+                        "day": "DATE"}
         if isDev:
             self.samples = self._create_samples_dev()
         else:
@@ -182,7 +186,7 @@ class QADataset(Dataset):
                 answer_start, answer_end = answers[0]['token_spans'][0]
                 
                 for word in self.heuristics:
-                    if word in question:
+                    if word in " ".join(question):
                         #print(question)
                         ner_sents= []
                         curr_sentence = []
@@ -193,9 +197,15 @@ class QADataset(Dataset):
                             p_word = passage[idx]
                             curr_sentence.append(p_word)
                             if p_word in [".", "?", "!"]:
-                                if len(self.ner(" ".join(str(w) for w in curr_sentence)).ents) > 0 or answer_in_sentence:
-                                    ner_sents.append([s_word for s_word in curr_sentence])
-                                elif idx < answer_start:
+                                entities = self.ner(" ".join(str(w) for w in curr_sentence)).ents
+                                found_correct_cat = answer_in_sentence
+                                idx = 0
+                                while not found_correct_cat and idx < len(entities):
+                                    if entities[idx].label_ == self.heuristics[word]:
+                                        ner_sents.append([s_word for s_word in curr_sentence])
+                                        found_correct_cat = True
+                                    idx+=1
+                                if not found_correct_cat and idx < answer_start:
                                     counter += len(curr_sentence)
                                 curr_sentence = []
                                 answer_in_sentence =False
