@@ -141,7 +141,7 @@ class QADataset(Dataset):
         self.args = args
         self.meta, self.elems = load_dataset(path)
         self.ner = spacy.load("en_core_web_sm")
-        self.heuristics = ["name", "which", "who", "whom"]
+        self.heuristics = ["place", "name", "which", "who", "whom"]
         if isDev:
             self.samples = self._create_samples_dev()
         else:
@@ -219,7 +219,7 @@ class QADataset(Dataset):
                 sent_NER_total += tmp_NER
                 w_removed_total += len(temp_passage)
                 passage_full += len(passage)
-                
+
                 samples.append(
                     (qid, temp_passage, question, answer_start, answer_end)
                 )
