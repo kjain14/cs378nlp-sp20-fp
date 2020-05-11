@@ -185,6 +185,7 @@ class QADataset(Dataset):
                 #print(qa)
                 answer_start, answer_end = answers[0]['token_spans'][0]
                 
+                tmp_NER = 0
                 for word in self.heuristics:
                     if word in question:
                         q_count += 1
@@ -200,8 +201,7 @@ class QADataset(Dataset):
                             if p_word in [".", "?", "!"]:
                                 if len(self.ner(" ".join(str(w) for w in curr_sentence)).ents) > 0 or answer_in_sentence:
                                     ner_sents.append([s_word for s_word in curr_sentence])
-                                    w_removed_total += len(curr_sentence)
-                                    sent_NER_total += 1
+                                    temp_NER += 1
                                 elif idx < answer_start:
                                     counter += len(curr_sentence)
                                 curr_sentence = []
@@ -214,7 +214,12 @@ class QADataset(Dataset):
                     answer_end -= counter
                 else:
                     temp_passage = passage
+                    tmp_NER = 0
+
+                sent_NER_total += tmp_NER
+                w_removed_total += len(temp_passage)
                 passage_full += len(passage)
+                
                 samples.append(
                     (qid, temp_passage, question, answer_start, answer_end)
                 )
