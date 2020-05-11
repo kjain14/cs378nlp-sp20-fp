@@ -461,8 +461,8 @@ def main(args):
         print()
 
     # Set up datasets.
-    train_dataset = QADataset(args, args.train_path)
-    dev_dataset = QADataset(args, args.dev_path)
+    train_dataset = QADataset(args, args.train_path, isDev = False)
+    dev_dataset = QADataset(args, args.dev_path, isDev = True)
 
     # Create vocabulary and tokenizer.
     vocabulary = Vocabulary(train_dataset.samples, args.vocab_size)

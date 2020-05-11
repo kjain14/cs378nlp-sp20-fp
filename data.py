@@ -137,12 +137,15 @@ class QADataset(Dataset):
         tokenizer: `Tokenizer` object.
         batch_size: Int. The number of example in a mini batch.
     """
-    def __init__(self, args, path):
+    def __init__(self, args, path, isDev):
         self.args = args
         self.meta, self.elems = load_dataset(path)
         self.ner = spacy.load("en_core_web_sm")
         self.heuristics = ["who", "name"]
-        self.samples = self._create_samples()
+        if isDev:
+            self.samples = self._create_samples_dev()
+        else:
+            self.samples = self._create_samples()
         self.tokenizer = None
         self.batch_size = args.batch_size if 'batch_size' in args else 1
         self.pad_token_id = self.tokenizer.pad_token_id \
@@ -154,7 +157,7 @@ class QADataset(Dataset):
             if l[ind:ind+sll]==sl:
                 return ind,ind+sll-1
         
-    def _create_samples(self):
+    def _create_samples_dev(self):
         """
         Formats raw examples to desired form. Any passages/questions longer
         than max sequence length will be truncated.
@@ -202,30 +205,54 @@ class QADataset(Dataset):
                                 curr_sentence = []
                                 answer_in_sentence =False
                         temp_passage = [w for sublist in ner_sents for w in sublist]
-                        #print("Passage is: ")
-                        #print(passage)
-                        #print()
-                        #print("Passage with NER is: ")
-                        #print(temp_passage)
-                        #print()
+
                         break
-                                
-                #print(temp_passage)
-                # Select the first answer span, which is formatted as
-                # (start_position, end_position), where the end_position
-                # is inclusive.
-                answer_start -= counter
-                answer_end -= counter
-                #if counter > 0:
-                    #print(temp_passage)
-                    #print((qid, temp_passage[answer_start:answer_end+1], question, answer_start, answer_end))
-                    #print(passage[answer_start+counter:answer_end+counter+1])
+
+                if len(temp_passage) > 0:         
+                    answer_start -= counter
+                    answer_end -= counter
+                else:
+                    temp_passage = passage
+
                 samples.append(
                     (qid, temp_passage, question, answer_start, answer_end)
                 )
                 
         return samples
 
+    def _create_samples(self):
+        """
+        Formats raw examples to desired form. Any passages/questions longer
+        than max sequence length will be truncated.
+        Returns:
+            A list of words (string).
+        """
+        samples = []
+        for elem in self.elems:
+            # Unpack the context paragraph. Shorten to max sequence length.
+            passage = [
+                token.lower() for (token, offset) in elem['context_tokens']
+            ][:self.args.max_context_length]
+
+            # Each passage has several questions associated with it.
+            # Additionally, each question has multiple possible answer spans.
+            for qa in elem['qas']:
+                qid = qa['qid']
+                question = [
+                    token.lower() for (token, offset) in qa['question_tokens']
+                ][:self.args.max_question_length]
+
+                # Select the first answer span, which is formatted as
+                # (start_position, end_position), where the end_position
+                # is inclusive.
+                answers = qa['detected_answers']
+                answer_start, answer_end = answers[0]['token_spans'][0]
+                samples.append(
+                    (qid, passage, question, answer_start, answer_end)
+                )
+                
+        return samples
+    
     def _create_data_generator(self, shuffle_examples=False):
         """
         Converts preprocessed text data to Torch tensors and returns a
