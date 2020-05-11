@@ -160,6 +160,7 @@ class QADataset(Dataset):
         Returns:
             A list of words (string).
         """
+        total_qs = 0
         w_removed_total = 0
         sent_NER_total = 0
         q_count = 0 
@@ -174,6 +175,7 @@ class QADataset(Dataset):
             # Each passage has several questions associated with it.
             # Additionally, each question has multiple possible answer spans.
             for qa in elem['qas']:
+                total_qs += 1
                 temp_passage = passage
                 qid = qa['qid']
                 question = [
@@ -223,6 +225,7 @@ class QADataset(Dataset):
                 samples.append(
                     (qid, temp_passage, question, answer_start, answer_end)
                 )
+        print("Total Questions: " + str(total_qs))
         print("Total Questions with Heuristics: " + str(q_count))
         print("Total Sentences with NER: " + str(sent_NER_total))
         print("Total Words Included: " + str(w_removed_total))
