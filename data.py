@@ -140,80 +140,11 @@ class QADataset(Dataset):
     def __init__(self, args, path, isDev):
         self.args = args
         self.meta, self.elems = load_dataset(path)
-        self.ner = spacy.load("en_core_web_sm")
-        self.heuristics = ["name", "which", "who", "whom"]
-        if isDev:
-            self.samples = self._create_samples_dev()
-        else:
-            self.samples = self._create_samples()
+        self.samples = self._create_samples()
         self.tokenizer = None
         self.batch_size = args.batch_size if 'batch_size' in args else 1
         self.pad_token_id = self.tokenizer.pad_token_id \
             if self.tokenizer is not None else 0
-
-        
-    def _create_samples_dev(self):
-        """
-        Formats raw examples to desired form. Any passages/questions longer
-        than max sequence length will be truncated.
-
-        Returns:
-            A list of words (string).
-        """
-        samples = []
-        for elem in self.elems:
-            # Unpack the context paragraph. Shorten to max sequence length.
-            passage = [
-                token.lower() for (token, offset) in elem['context_tokens']
-            ][:self.args.max_context_length]
-
-            # Each passage has several questions associated with it.
-            # Additionally, each question has multiple possible answer spans.
-            for qa in elem['qas']:
-                temp_passage = passage
-                qid = qa['qid']
-                question = [
-                    token.lower() for (token, offset) in qa['question_tokens']
-                ][:self.args.max_question_length]
-                counter = 0
-                
-                answers = qa['detected_answers']
-                #print(qa)
-                answer_start, answer_end = answers[0]['token_spans'][0]
-                
-                for word in self.heuristics:
-                    if word in question:
-                        #print(question)
-                        ner_sents= []
-                        curr_sentence = []
-                        answer_in_sentence = False
-                        for idx in range(len(passage)):
-                            if idx >= answer_start and idx <= answer_end:
-                                answer_in_sentence = True
-                            p_word = passage[idx]
-                            curr_sentence.append(p_word)
-                            if p_word in [".", "?", "!"]:
-                                if len(self.ner(" ".join(str(w) for w in curr_sentence)).ents) > 0 or answer_in_sentence:
-                                    ner_sents.append([s_word for s_word in curr_sentence])
-                                elif idx < answer_start:
-                                    counter += len(curr_sentence)
-                                curr_sentence = []
-                                answer_in_sentence =False
-                        temp_passage = [w for sublist in ner_sents for w in sublist]
-
-                        break
-
-                if len(temp_passage) > 0:         
-                    answer_start -= counter
-                    answer_end -= counter
-                else:
-                    temp_passage = passage
-
-                samples.append(
-                    (qid, temp_passage, question, answer_start, answer_end)
-                )
-                
-        return samples
 
     def _create_samples(self):
         """

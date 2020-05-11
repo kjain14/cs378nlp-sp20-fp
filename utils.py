@@ -8,7 +8,7 @@ import os
 import json
 import gzip
 import pickle
-
+import spacy
 import torch
 from tqdm import tqdm
 
@@ -105,7 +105,7 @@ def load_embeddings(path):
     return embedding_map
 
 
-def search_span_endpoints(start_probs, end_probs, window=15):
+def search_span_endpoints(start_probs, end_probs, question, passage, window=15):
     """
     Finds an optimal answer span given start and end probabilities.
     Specifically, this algorithm finds the optimal start probability p_s, then
@@ -124,15 +124,33 @@ def search_span_endpoints(start_probs, end_probs, window=15):
         Optimal starting and ending indices for the answer span. Note that the
         chosen end index is *inclusive*.
     """
-    max_start_index = start_probs.index(max(start_probs))
+    max_start_index = -1
     max_end_index = -1
     max_joint_prob = 0.
-
-    for end_index in range(len(end_probs)):
-        if max_start_index <= end_index <= max_start_index + window:
-            joint_prob = start_probs[max_start_index] * end_probs[end_index]
-            if joint_prob > max_joint_prob:
-                max_joint_prob = joint_prob
-                max_end_index = end_index
+    ner = spacy.load("en_core_web_sm")
+    heuristics = {"when":"DATE", 
+                        "who":"PERSON",
+                        "how many":"NUMBER",
+                        "year":"DATE",
+                        "day": "DATE"}
+    for start_index in range(len(start_probs)):
+        for end_index in range(start_index, len(end_probs)):
+            if max_start_index <= end_index <= max_start_index + window:
+                joint_prob = start_probs[max_start_index] * end_probs[end_index]
+                for heuristic in heuristics:
+                    if heuristic in question:
+                        entities = ner(" ".join(passage[start_index:end_index+1])).ents
+                        found_ent = False
+                        idx = 0
+                        while not found_ent and idx < len(entities):
+                            entity = entities[idx]
+                            if entity.label_ == heuristics[heuristic]:
+                                joint_prob += 0.3
+                                found_ent = True
+                            idx += 1
+                if joint_prob > max_joint_prob:
+                    max_joint_prob = joint_prob
+                    max_end_index = end_index
+                    max_start_index = start_index
 
     return (max_start_index, max_end_index)
