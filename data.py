@@ -141,7 +141,7 @@ class QADataset(Dataset):
         self.args = args
         self.meta, self.elems = load_dataset(path)
         self.ner = spacy.load("en_core_web_sm")
-        self.heuristics = ["who", "name"]
+        self.heuristics = ["name"]
         if isDev:
             self.samples = self._create_samples_dev()
         else:
