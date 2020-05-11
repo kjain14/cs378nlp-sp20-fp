@@ -201,7 +201,7 @@ class QADataset(Dataset):
                             if p_word in [".", "?", "!"]:
                                 if len(self.ner(" ".join(str(w) for w in curr_sentence)).ents) > 0 or answer_in_sentence:
                                     ner_sents.append([s_word for s_word in curr_sentence])
-                                    temp_NER += 1
+                                    tmp_NER += 1
                                 elif idx < answer_start:
                                     counter += len(curr_sentence)
                                 curr_sentence = []
